@@ -1,0 +1,331 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>TicTacToe - Lobby</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <style>
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: "Segoe UI", Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    #container {
+      display: flex;
+      gap: 20px;
+      max-width: 1100px;
+      width: 100%;
+    }
+
+    #left, #right {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    #left {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #right {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    h2, h3 {
+      color: #e2e8f0;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    input, button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      margin: 5px;
+    }
+
+    input {
+      width: 180px;
+      background: #334155;
+      color: #fff;
+    }
+
+    button {
+      background: #2563eb;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #1e40af;
+    }
+
+    #logoutBtn {
+      background: #ef4444;
+    }
+
+    #logoutBtn:hover {
+      background: #b91c1c;
+    }
+
+    #playBtn {
+      background: #22c55e;
+    }
+
+    #playBtn:hover {
+      background: #15803d;
+    }
+
+    #auth, #lobby, #gameArea {
+      width: 100%;
+      text-align: center;
+    }
+
+    #queueList {
+      text-align: left;
+      padding-left: 25px;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 80px);
+      grid-gap: 10px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .cell {
+      width: 80px;
+      height: 80px;
+      background: #334155;
+      border-radius: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .cell:hover {
+      background: #475569;
+    }
+
+    .cell.disabled {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .status-box {
+      background: #111;
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 0.95rem;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+
+    .status-box.win { background: #15803d; }
+    .status-box.lose { background: #b91c1c; }
+    .status-box.draw { background: #57534e; }
+    .status-box.info { background: #1e40af; }
+
+    #playAgainPrompt {
+      margin-top: 10px;
+    }
+
+    /* Leaderboard */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      padding: 8px;
+      text-align: center;
+      border-bottom: 1px solid #334155;
+    }
+
+    th {
+      background: #334155;
+      color: #f8fafc;
+    }
+
+    tr:nth-child(even) {
+      background: #293548;
+    }
+
+    #lobbyMsg {
+      margin-top: 10px;
+      color: #94a3b8;
+    }
+
+    /* Highlight winning cells */
+    .cell.highlight {
+      background-color: #16a34a !important; /* green highlight */
+      color: #fff;
+      animation: flash 1s ease infinite alternate;
+    }
+
+    @keyframes flash {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    /* Game Result Banner */
+    .banner {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      opacity: 0.95;
+    }
+
+    .banner.hidden { display: none; }
+    .banner.win { background-color: #15803d; color: #fff; }
+    .banner.lose { background-color: #b91c1c; color: #fff; }
+    .banner.draw { background-color: #57534e; color: #fff; }
+    .banner.info { background-color: #1e40af; color: #fff; }
+
+        /* Match History Styling */
+    .match-history {
+      list-style: none;
+      padding-left: 0;
+      margin-top: 8px;
+      font-size: 0.9rem;
+      background: #111;
+      border-radius: 10px;
+      padding: 10px;
+      max-height: 220px;
+      overflow-y: auto;
+      box-shadow: inset 0 0 8px rgba(255,255,255,0.1);
+    }
+
+    .match-history li {
+      padding: 6px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .match-history li:last-child {
+      border-bottom: none;
+    }
+
+    .match-history span.status {
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-radius: 6px;
+      padding: 2px 6px;
+    }
+
+    .status-win { color: #22c55e; }   /* green */
+    .status-loss { color: #ef4444; }  /* red */
+    .status-draw { color: #e5e7eb; }  /* light gray */
+
+
+  </style>
+</head>
+
+<body>
+
+  <!-- Game Result Banner -->
+  <div id="gameResultBanner" class="banner hidden"></div>
+  <div id="container">
+    <div id="left">
+      <!-- Authentication -->
+      <div id="auth">
+        <h2>🎮 Welcome to Tic Tac Toe</h2>
+        <input id="username" placeholder="Enter unique username">
+        <button id="joinBtn">Join</button>
+        <button id="logoutBtn" style="display:none">Logout</button>
+        <p id="joinStatus"></p>
+      </div>
+
+      <!-- Lobby -->
+      <div id="lobby" style="display:none">
+        <h3>Lobby</h3>
+        <p>Players waiting for match:</p>
+        <ol id="queueList"></ol>
+        <button id="playBtn">Play Game</button>
+        <p id="lobbyMsg">Click "Play Game" to enter matchmaking.</p>
+      </div>
+
+      <!-- Game Area -->
+      <div id="gameArea" style="display:none">
+        <h3>Game vs <span id="opponentName"></span></h3>
+
+        <div id="game-status" class="status-box info">
+          <p id="status-text">Waiting for opponent...</p>
+        </div>
+
+        <div id="board">
+          <div id="cell0" class="cell" data-idx="0"></div>
+          <div id="cell1" class="cell" data-idx="1"></div>
+          <div id="cell2" class="cell" data-idx="2"></div>
+          <div id="cell3" class="cell" data-idx="3"></div>
+          <div id="cell4" class="cell" data-idx="4"></div>
+          <div id="cell5" class="cell" data-idx="5"></div>
+          <div id="cell6" class="cell" data-idx="6"></div>
+          <div id="cell7" class="cell" data-idx="7"></div>
+          <div id="cell8" class="cell" data-idx="8"></div>
+        </div>
+
+        <p id="turnInfo"></p>
+
+        <div id="playAgainPrompt" style="display:none">
+          <p>Play again?</p>
+          <button id="playAgainYes">Yes</button>
+          <button id="playAgainNo">No</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div id="right">
+      <h3>🏅 Leaderboard</h3>
+      <table id="leaderboardTable">
+        <thead>
+          <tr>
+            <th>Player</th><th>Played</th><th>W</th><th>L</th><th>D</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <h3>📝 Match History</h3>
+      <ul id="matchHistory" class="match-history"></ul>
+    </div>
+  </div>
+
+  <script src="/static/main.js"></script>
+</body>
+</html>
